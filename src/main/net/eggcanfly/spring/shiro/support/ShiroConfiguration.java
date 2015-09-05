@@ -1,4 +1,4 @@
-package net.eggcanfly.spring.example;
+package net.eggcanfly.spring.shiro.support;
 
 import javax.servlet.Filter;
 
@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-public class SecurityConfig {
+public class ShiroConfiguration {
 
 	@Bean
 	public FactoryBean<Filter> shiroFilter(){

@@ -31,12 +31,12 @@ public class WebInitializer extends
 
 	@Override
 	protected Class<?>[] getRootConfigClasses() {
-		return new Class[]{SecurityConfig.class};
+		return new Class[]{ExampleAppConfiguration.class};
 	}
 
 	@Override
 	protected Class<?>[] getServletConfigClasses() {
-		return new Class[]{WebMvcConfig.class};
+		return new Class[]{WebMvcConfiguration.class};
 	}
 
 	@Override

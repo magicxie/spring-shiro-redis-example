@@ -15,6 +15,10 @@
  */
 package net.eggcanfly.spring.example.web;
 
+import javax.annotation.Resource;
+
+import org.springframework.data.redis.core.ListOperations;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -27,9 +31,15 @@ import org.springframework.web.bind.annotation.ResponseBody;
 @RequestMapping("/")
 public class IndexController {
 
+	@Resource
+	private RedisTemplate<String, String> template;
+	
+	@Resource(name="redisTemplate")
+    private ListOperations<String, String> listOps;
+	
 	@ResponseBody
 	@RequestMapping("/")
 	public String index(){
-		return "hello world";
+		return listOps.leftPush("hello", "world").toString();
 	}
 }
