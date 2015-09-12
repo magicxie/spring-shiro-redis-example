@@ -15,12 +15,19 @@
  */
 package net.eggcanfly.spring.shiro.support;
 
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.Collection;
 
+import javax.annotation.Resource;
+
 import org.apache.shiro.session.Session;
 import org.apache.shiro.session.UnknownSessionException;
+import org.apache.shiro.session.mgt.eis.CachingSessionDAO;
 import org.apache.shiro.session.mgt.eis.SessionDAO;
+import org.springframework.data.redis.core.BoundHashOperations;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 /**
@@ -28,54 +35,50 @@ import org.springframework.stereotype.Component;
  *
  */
 @Component
-public class RedisSessionDao implements SessionDAO {
+public class RedisSessionDao extends CachingSessionDAO{
 
+	@Resource
+	private RedisTemplate<String, String> template;
 	
+	protected String getSessionKey(Session session){
+		return (String) session.getId();
+	}
 	
-	/* (non-Javadoc)
-	 * @see org.apache.shiro.session.mgt.eis.SessionDAO#create(org.apache.shiro.session.Session)
-	 */
 	@Override
-	public Serializable create(Session session) {
+	protected void doUpdate(Session session) {
+		
+		BoundHashOperations<String, Object, Object>  boudhashOps = template.boundHashOps(getSessionKey(session));
+		
+		if(session instanceof Serializable){
+			
+			Serializable serializableSession = (Serializable) session;
+			
+			boudhashOps.put("session", serializableSession);
+			
+		}else{
+			for(Object key : session.getAttributeKeys()){
+				boudhashOps.put(key, session.getAttribute(key));
+			}
+		}
+		
+		
+	}
+
+	@Override
+	protected void doDelete(Session session) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	protected Serializable doCreate(Session session) {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
-	/* (non-Javadoc)
-	 * @see org.apache.shiro.session.mgt.eis.SessionDAO#readSession(java.io.Serializable)
-	 */
 	@Override
-	public Session readSession(Serializable sessionId)
-			throws UnknownSessionException {
-		// TODO Auto-generated method stub
+	protected Session doReadSession(Serializable sessionId) {
 		return null;
 	}
-
-	/* (non-Javadoc)
-	 * @see org.apache.shiro.session.mgt.eis.SessionDAO#update(org.apache.shiro.session.Session)
-	 */
-	@Override
-	public void update(Session session) throws UnknownSessionException {
-		// TODO Auto-generated method stub
-
-	}
-
-	/* (non-Javadoc)
-	 * @see org.apache.shiro.session.mgt.eis.SessionDAO#delete(org.apache.shiro.session.Session)
-	 */
-	@Override
-	public void delete(Session session) {
-		// TODO Auto-generated method stub
-
-	}
-
-	/* (non-Javadoc)
-	 * @see org.apache.shiro.session.mgt.eis.SessionDAO#getActiveSessions()
-	 */
-	@Override
-	public Collection<Session> getActiveSessions() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
+	
 }
