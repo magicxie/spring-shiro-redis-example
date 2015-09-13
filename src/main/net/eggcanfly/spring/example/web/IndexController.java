@@ -16,6 +16,7 @@
 package net.eggcanfly.spring.example.web;
 
 import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
 
 import org.springframework.data.redis.core.ListOperations;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -39,7 +40,10 @@ public class IndexController {
 	
 	@ResponseBody
 	@RequestMapping("/")
-	public String index(){
-		return listOps.leftPush("hello", "world").toString();
+	public String index(HttpServletRequest req){
+		
+		req.getSession().setAttribute("session", "session");
+		
+		return "session";
 	}
 }

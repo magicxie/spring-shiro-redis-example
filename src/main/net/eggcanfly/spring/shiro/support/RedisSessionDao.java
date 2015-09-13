@@ -15,17 +15,20 @@
  */
 package net.eggcanfly.spring.shiro.support;
 
-import java.io.ByteArrayOutputStream;
-import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
 
 import javax.annotation.Resource;
 
+import org.apache.log4j.Logger;
 import org.apache.shiro.session.Session;
 import org.apache.shiro.session.UnknownSessionException;
-import org.apache.shiro.session.mgt.eis.CachingSessionDAO;
-import org.apache.shiro.session.mgt.eis.SessionDAO;
+import org.apache.shiro.session.mgt.SimpleSession;
+import org.apache.shiro.session.mgt.eis.AbstractSessionDAO;
 import org.springframework.data.redis.core.BoundHashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
@@ -35,50 +38,123 @@ import org.springframework.stereotype.Component;
  *
  */
 @Component
-public class RedisSessionDao extends CachingSessionDAO{
+public class RedisSessionDao extends AbstractSessionDAO{
 
-	@Resource
-	private RedisTemplate<String, String> template;
+	private static final Logger logger = Logger.getLogger(RedisSessionDao.class);
 	
-	protected String getSessionKey(Session session){
+	@Resource
+	private RedisTemplate<String, String> redisTemplate;
+	
+	public static final String SESSION_KEY = "session-redis:";
+	
+	protected String getSessionId(Session session){
 		return (String) session.getId();
 	}
 	
 	@Override
-	protected void doUpdate(Session session) {
+	protected Session doReadSession(Serializable sessionId) {
 		
-		BoundHashOperations<String, Object, Object>  boudhashOps = template.boundHashOps(getSessionKey(session));
+		return deserializeSession(sessionId);
+	}
+
+	protected Session deserializeSession(Serializable sessionId) {
 		
-		if(session instanceof Serializable){
+		BoundHashOperations<String, String, Object> hashOperations = redisTemplate.boundHashOps(SESSION_KEY + sessionId);
+		
+		SimpleSession session = new SimpleSession();
+		
+		try {
 			
-			Serializable serializableSession = (Serializable) session;
 			
-			boudhashOps.put("session", serializableSession);
-			
-		}else{
-			for(Object key : session.getAttributeKeys()){
-				boudhashOps.put(key, session.getAttribute(key));
+			session.setHost((String) hashOperations.get("host"));
+			session.setId(sessionId);
+			session.setLastAccessTime(hashOperations.get("lastAccessTime") == null ? new Date(System.currentTimeMillis()) : (Date) hashOperations.get("lastAccessTime"));
+			session.setStartTimestamp((Date) hashOperations.get("startTimestamp"));
+			session.setStopTimestamp((Date) hashOperations.get("stopTimestamp"));
+			session.setTimeout((long) hashOperations.get("timeout"));
+			Set<String> hashKeys = hashOperations.keys();
+			for (Iterator<String> iterator = hashKeys.iterator(); iterator.hasNext();) {
+				String hashKey = iterator.next();
+				session.setAttribute(hashKey, hashOperations.get(hashKey));
 			}
+		} catch (Exception e) {
+			logger.error(e.getMessage(), e);
+			
 		}
 		
+		logger.debug("read session " + sessionId + ", session is " + session);
+		
+		return session.isValid() ? session : null;
+	}
+
+
+	@Override
+	public void update(Session session) throws UnknownSessionException {
+		
+		String sessionId = getSessionId(session);
+		
+		seriablizeSession(session, sessionId);
+		
+		logger.debug("update session " + sessionId);
 		
 	}
 
-	@Override
-	protected void doDelete(Session session) {
-		// TODO Auto-generated method stub
+	protected void seriablizeSession(Session session, Serializable sessionId) {
 		
+		BoundHashOperations<String, String, Object> hashOperations = redisTemplate.boundHashOps(SESSION_KEY + sessionId );
+		
+		Collection<Object> attributeKeys = session.getAttributeKeys();
+		
+		for (Iterator<Object> iterator = attributeKeys.iterator(); iterator.hasNext();) {
+			Object key = iterator.next();
+			hashOperations.put((String) key, session.getAttribute(key));
+		}
+		
+		hashOperations.put("host", session.getHost());
+		hashOperations.put("lastAccessTime", session.getLastAccessTime());
+		hashOperations.put("startTimestamp", session.getStartTimestamp());
+		hashOperations.put("stopTimestamp", ((SimpleSession) session).getStopTimestamp());
+		hashOperations.put("timeout", session.getTimeout());
+	}
+
+
+	@Override
+	public void delete(Session session) {
+		
+		String sessionId = getSessionId(session);
+		redisTemplate.delete(SESSION_KEY + sessionId);
+		
+		logger.debug("delete session " + sessionId);
+		
+	}
+
+
+	@Override
+	public Collection<Session> getActiveSessions() {
+
+		Set<String> keys = redisTemplate.keys(SESSION_KEY + "*");
+		
+		Collection<Session> sessions = new HashSet<Session>();
+		
+		for (Iterator<String> iterator = keys.iterator(); iterator.hasNext();) {
+			String sessionId = iterator.next();
+			sessions.add(doReadSession(sessionId));
+		}
+		
+		return sessions;
 	}
 
 	@Override
 	protected Serializable doCreate(Session session) {
-		// TODO Auto-generated method stub
-		return null;
-	}
 
-	@Override
-	protected Session doReadSession(Serializable sessionId) {
-		return null;
+		Serializable sessionId = generateSessionId(session);
+		assignSessionId(session, sessionId);
+		
+		seriablizeSession(session, sessionId);
+		
+		logger.debug("create session " + sessionId);
+		
+		return sessionId;
 	}
 	
 }
