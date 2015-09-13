@@ -10,8 +10,6 @@ import org.springframework.data.redis.core.RedisTemplate;
 @Configuration
 public class RedisConfiguration {
 
-	protected int port;
-	
 	@Bean
 	public JedisConnectionFactory jedisConnectionFactory(){
 		
@@ -22,6 +20,7 @@ public class RedisConfiguration {
 		return factory;
 	}
 	
+	@SuppressWarnings("rawtypes")
 	@Bean
 	public RedisTemplate redisTemplate(){
 		

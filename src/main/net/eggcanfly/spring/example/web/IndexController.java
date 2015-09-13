@@ -46,4 +46,11 @@ public class IndexController {
 		
 		return "session";
 	}
+	
+	@ResponseBody
+	@RequestMapping("/admin")
+	public String admin(HttpServletRequest req){
+		
+		return "admin";
+	}
 }
